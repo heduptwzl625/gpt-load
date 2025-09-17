@@ -78,7 +78,7 @@ func (ps *ProxyServer) HandleProxy(c *gin.Context) {
 				}
 			}
 			if !isAllowed {
-				response.Error(c, app_errors.NewAPIError(app_errors.ErrForbidden, "This User-Agent is not allowed"))
+				response.Error(c, app_errors.NewAPIError(app_errors.ErrForbidden, ""))
 				return
 			}
 		}
