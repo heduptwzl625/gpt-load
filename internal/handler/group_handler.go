@@ -178,6 +178,7 @@ type GroupCreateRequest struct {
 	Config             map[string]any      `json:"config"`
 	HeaderRules        []models.HeaderRule `json:"header_rules"`
 	ProxyKeys          string              `json:"proxy_keys"`
+	AllowedUserAgents  []string            `json:"allowed_user_agents"`
 }
 
 // CreateGroup handles the creation of a new group.
@@ -268,6 +269,18 @@ func (s *Server) CreateGroup(c *gin.Context) {
 		headerRulesJSON = datatypes.JSON("[]")
 	}
 
+	var allowedUserAgentsJSON datatypes.JSON
+	if len(req.AllowedUserAgents) > 0 {
+		allowedUserAgentsBytes, err := json.Marshal(req.AllowedUserAgents)
+		if err != nil {
+			response.ErrorI18nFromAPIError(c, app_errors.ErrInternalServer, "error.process_allowed_user_agents", map[string]any{"error": err.Error()})
+			return
+		}
+		allowedUserAgentsJSON = allowedUserAgentsBytes
+	} else {
+		allowedUserAgentsJSON = datatypes.JSON("[]")
+	}
+
 	group := models.Group{
 		Name:               name,
 		DisplayName:        strings.TrimSpace(req.DisplayName),
@@ -281,6 +294,7 @@ func (s *Server) CreateGroup(c *gin.Context) {
 		Config:             cleanedConfig,
 		HeaderRules:        headerRulesJSON,
 		ProxyKeys:          strings.TrimSpace(req.ProxyKeys),
+		AllowedUserAgents:  allowedUserAgentsJSON,
 	}
 
 	if err := s.DB.Create(&group).Error; err != nil {
@@ -325,6 +339,7 @@ type GroupUpdateRequest struct {
 	Config             map[string]any      `json:"config"`
 	HeaderRules        []models.HeaderRule `json:"header_rules"`
 	ProxyKeys          *string             `json:"proxy_keys,omitempty"`
+	AllowedUserAgents  []string            `json:"allowed_user_agents"`
 }
 
 // UpdateGroup handles updating an existing group.
@@ -469,6 +484,21 @@ func (s *Server) UpdateGroup(c *gin.Context) {
 		group.HeaderRules = headerRulesJSON
 	}
 
+	if req.AllowedUserAgents != nil {
+		var allowedUserAgentsJSON datatypes.JSON
+		if len(req.AllowedUserAgents) > 0 {
+			allowedUserAgentsBytes, err := json.Marshal(req.AllowedUserAgents)
+			if err != nil {
+				response.ErrorI18nFromAPIError(c, app_errors.ErrInternalServer, "error.process_allowed_user_agents", map[string]any{"error": err.Error()})
+				return
+			}
+			allowedUserAgentsJSON = allowedUserAgentsBytes
+		} else {
+			allowedUserAgentsJSON = datatypes.JSON("[]")
+		}
+		group.AllowedUserAgents = allowedUserAgentsJSON
+	}
+
 	// Save the updated group object
 	if err := tx.Save(&group).Error; err != nil {
 		response.Error(c, app_errors.ParseDBError(err))
@@ -502,6 +532,7 @@ type GroupResponse struct {
 	Config             datatypes.JSONMap   `json:"config"`
 	HeaderRules        []models.HeaderRule `json:"header_rules"`
 	ProxyKeys          string              `json:"proxy_keys"`
+	AllowedUserAgents  []string            `json:"allowed_user_agents"`
 	LastValidatedAt    *time.Time          `json:"last_validated_at"`
 	CreatedAt          time.Time           `json:"created_at"`
 	UpdatedAt          time.Time           `json:"updated_at"`
@@ -528,6 +559,14 @@ func (s *Server) newGroupResponse(group *models.Group) *GroupResponse {
 		}
 	}
 
+	var allowedUserAgents []string
+	if len(group.AllowedUserAgents) > 0 {
+		if err := json.Unmarshal(group.AllowedUserAgents, &allowedUserAgents); err != nil {
+			logrus.WithError(err).Error("Failed to unmarshal allowed user agents")
+			allowedUserAgents = make([]string, 0)
+		}
+	}
+
 	return &GroupResponse{
 		ID:                 group.ID,
 		Name:               group.Name,
@@ -543,6 +582,7 @@ func (s *Server) newGroupResponse(group *models.Group) *GroupResponse {
 		Config:             group.Config,
 		HeaderRules:        headerRules,
 		ProxyKeys:          group.ProxyKeys,
+		AllowedUserAgents:  allowedUserAgents,
 		LastValidatedAt:    group.LastValidatedAt,
 		CreatedAt:          group.CreatedAt,
 		UpdatedAt:          group.UpdatedAt,
