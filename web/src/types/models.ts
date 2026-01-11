@@ -19,6 +19,7 @@ export interface APIKey {
   id: number;
   group_id: number;
   key_value: string;
+  notes?: string;
   status: KeyStatus;
   request_count: number;
   failure_count: number;
@@ -75,6 +76,8 @@ export interface Group {
   api_keys?: APIKey[];
   endpoint?: string;
   param_overrides: Record<string, unknown>;
+  model_redirect_rules: Record<string, string>;
+  model_redirect_strict: boolean;
   header_rules?: HeaderRule[];
   proxy_keys: string;
   group_type?: GroupType;
